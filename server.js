@@ -1,22 +1,33 @@
 import express from "express"
-import fs from "fs"
-import path from "path"
+import pkg from "pg"
+
+const { Pool } = pkg
 
 const app = express()
 app.use(express.json())
 app.use(express.static("public"))
 
 /* =====================
-   USERS
+   DATABASE
+===================== */
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: process.env.NODE_ENV === "production"
+    ? { rejectUnauthorized: false }
+    : false
+})
+
+/* =====================
+   USERS (still in-memory)
 ===================== */
 const USERS = {
-  mikel: { password: "1234", csv: "mikel.csv" },
-  eneko: { password: "valladares", csv: "eneko.csv" },
-  ana: { password: "5678", csv: "ana.csv" }
+  mikel: { password: "1234" },
+  eneko: { password: "valladares" },
+  ana: { password: "5678" }
 }
 
 /* =====================
-   IN-MEMORY STATE
+   IN-MEMORY STATE (live day)
 ===================== */
 const dailyState = {}
 
@@ -41,19 +52,49 @@ function initUser(user) {
     restaurants: [],
     films: [],
     shows: [],
-    books: []
+    books: [],
+    lastSnapshotHour: null
   }
+}
 
-  const file = USERS[user].csv
-  if (!fs.existsSync(file)) {
-    fs.writeFileSync(
-      file,
-      "Date,Poop,Piss,Shower,Sick,Workout,Nap,Party,Coffee,RestaurantCount,FilmCount,TVCount,BookCount\n"
+/* =====================
+   DATABASE INIT
+===================== */
+async function initDB() {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS daily_snapshots (
+      id SERIAL PRIMARY KEY,
+      username TEXT NOT NULL,
+      date DATE NOT NULL,
+      snapshot_type TEXT NOT NULL,
+      poop INT,
+      piss INT,
+      coffee INT,
+      shower INT,
+      sick INT,
+      workout INT,
+      nap INT,
+      party INT,
+      restaurant_count INT,
+      film_count INT,
+      show_count INT,
+      book_count INT,
+      created_at TIMESTAMP DEFAULT NOW()
     )
-  }
+  `)
 
-  // ensure logs folder exists
-  if (!fs.existsSync("logs")) fs.mkdirSync("logs")
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS named_events (
+      id SERIAL PRIMARY KEY,
+      username TEXT NOT NULL,
+      date DATE NOT NULL,
+      type TEXT NOT NULL,
+      name TEXT NOT NULL,
+      time TIMESTAMP NOT NULL
+    )
+  `)
+
+  console.log("Database ready")
 }
 
 /* =====================
@@ -78,143 +119,134 @@ app.get("/state/:user", (req, res) => {
   res.json(dailyState[user])
 })
 
-app.get("/state/:user/:date", (req, res) => {
+app.get("/state/:user/:date", async (req, res) => {
   const { user, date } = req.params
 
-  // if today, return live state
   if (date === today() && dailyState[user]) {
     return res.json(dailyState[user])
   }
 
-  // check logs
-  const logFile = path.join("logs", `${user}-${date}.json`)
-  if (fs.existsSync(logFile)) {
-    const data = JSON.parse(fs.readFileSync(logFile))
-    return res.json(data)
+  const { rows } = await pool.query(
+    `SELECT * FROM daily_snapshots
+     WHERE username=$1 AND date=$2
+     ORDER BY created_at DESC
+     LIMIT 1`,
+    [user, date]
+  )
+
+  if (rows.length === 0) {
+    return res.json({ date, readOnly: true })
   }
 
-  // if no log, return empty structure (read-only)
-  res.json({
-    date,
-    poop: 0, piss: 0, coffee: 0, shower: 0, sick: 0, workout: 0, nap: 0, party: 0,
-    restaurants: [], films: [], shows: [], books: [],
-    readOnly: true // flag to disable editing
-  })
+  res.json(rows[0])
 })
 
+/* =====================
+   MUTATIONS
+===================== */
 app.post("/increment/:user/:field", (req, res) => {
   const { user, field } = req.params
   if (!dailyState[user]) return res.status(404).end()
   if (typeof dailyState[user][field] !== "number")
-    return res.status(400).json({ error: "Not a numeric field" })
+    return res.status(400).json({ error: "Not numeric" })
 
-  dailyState[user][field] += 1
-  res.json(dailyState[user])
-})
-
-// Decrement numeric counter
-app.post("/decrement/:user/:field", (req, res) => {
-  const { user, field } = req.params
-  if (!dailyState[user]) return res.status(404).json({ error: "User not found" })
-  if (!(field in dailyState[user])) return res.status(400).json({ error: "Invalid field" })
-
-  // Make sure it’s a number field
-  if (typeof dailyState[user][field] === "number") {
-    dailyState[user][field] = Math.max(0, dailyState[user][field] - 1) // no negative counts
-  }
-
-  res.json({ ok: true, value: dailyState[user][field] })
-})
-
-app.post("/toggle/:user/:field", (req, res) => {
-  const { user, field } = req.params
-  if (!dailyState[user]) return res.status(404).end()
-  if (typeof dailyState[user][field] !== "number")
-    return res.status(400).json({ error: "Not a toggle field" })
-
-  dailyState[user][field] = dailyState[user][field] ? 0 : 1
+  dailyState[user][field]++
   res.json(dailyState[user])
 })
 
 app.post("/add/:user/:type", (req, res) => {
   const { user, type } = req.params
   const { name } = req.body
+
   if (!dailyState[user]) return res.status(404).end()
   if (!Array.isArray(dailyState[user][type]))
     return res.status(400).json({ error: "Invalid type" })
 
-  dailyState[user][type].push({ name, time: new Date().toISOString() })
+  dailyState[user][type].push({
+    name,
+    time: new Date().toISOString()
+  })
+
   res.json(dailyState[user])
 })
 
 /* =====================
-   MIDNIGHT & SNAPSHOT ROLLOVER
+   SAVE TO DATABASE
 ===================== */
-
-function saveDayToCSV(user, type = "midnight") {
+async function saveDayToDB(user, type = "midnight") {
   const d = dailyState[user]
-  const file = USERS[user].csv
 
-  // append CSV row
-  const row = `${d.date},${d.poop},${d.piss},${d.shower},${d.sick},${d.workout},${d.nap},${d.party},${d.coffee},${d.restaurants.length},${d.films.length},${d.shows.length},${d.books.length},${type}\n`
-  fs.appendFileSync(file, row)
+  await pool.query(
+    `INSERT INTO daily_snapshots (
+      username, date, snapshot_type,
+      poop, piss, coffee, shower, sick,
+      workout, nap, party,
+      restaurant_count, film_count, show_count, book_count
+    ) VALUES (
+      $1,$2,$3,
+      $4,$5,$6,$7,$8,
+      $9,$10,$11,
+      $12,$13,$14,$15
+    )`,
+    [
+      user, d.date, type,
+      d.poop, d.piss, d.coffee, d.shower, d.sick,
+      d.workout, d.nap, d.party,
+      d.restaurants.length,
+      d.films.length,
+      d.shows.length,
+      d.books.length
+    ]
+  )
 
-  // save full JSON log
-  const logFile = path.join("logs", `${user}-${d.date}-${type}.json`)
-  fs.writeFileSync(logFile, JSON.stringify(d, null, 2))
-}
-
-function resetDailyState(user) {
-  dailyState[user] = {
-    date: today(),
-    poop: 0,
-    piss: 0,
-    coffee: 0,
-    shower: 0,
-    sick: 0,
-    workout: 0,
-    nap: 0,
-    party: 0,
-    restaurants: [],
-    films: [],
-    shows: [],
-    books: [],
-    lastSnapshotHour: null // track last snapshot to avoid duplicates
+  for (const typeName of ["restaurants", "films", "shows", "books"]) {
+    for (const item of d[typeName]) {
+      await pool.query(
+        `INSERT INTO named_events (username, date, type, name, time)
+         VALUES ($1,$2,$3,$4,$5)`,
+        [user, d.date, typeName.slice(0, -1), item.name, item.time]
+      )
+    }
   }
 }
 
-// check every minute
-setInterval(() => {
+function resetDailyState(user) {
+  initUser(user)
+}
+
+/* =====================
+   ROLLOVER & SNAPSHOTS
+===================== */
+setInterval(async () => {
   const now = new Date()
   const hh = now.getHours()
   const mm = now.getMinutes()
   const todayStr = today()
 
   for (const user in dailyState) {
-    // MIDNIGHT ROLLOVER
+    // MIDNIGHT
     if (dailyState[user].date !== todayStr) {
-      saveDayToCSV(user, "midnight")
+      await saveDayToDB(user, "midnight")
       resetDailyState(user)
-      console.log(`Saved and reset ${user} for new day ${todayStr}`)
       continue
     }
 
-    // SNAPSHOT saves at 6AM, 12PM, 6PM
-    const snapshotHours = [3, 6, 9, 12, 15, 18, 21]
-    if (snapshotHours.includes(hh) && mm >= 0 && mm < 1) {
-      // prevent multiple saves in the same hour
+    // SNAPSHOTS
+    const snapshotHours = [3, 6, 9, 12, 15, 18, 19, 21]
+    if (snapshotHours.includes(hh) && mm === 0) {
       if (dailyState[user].lastSnapshotHour !== hh) {
-        saveDayToCSV(user, "snapshot")
+        await saveDayToDB(user, "snapshot")
         dailyState[user].lastSnapshotHour = hh
-        console.log(`Saved snapshot for ${user} at ${hh}:00`)
       }
     }
   }
-}, 60 * 1000) // every minute
+}, 60 * 1000)
 
 /* =====================
    START SERVER
 ===================== */
+await initDB()
+
 app.listen(3000, () => {
-  console.log("Server running at http://localhost:3000")
+  console.log("Server running on http://localhost:3000")
 })
