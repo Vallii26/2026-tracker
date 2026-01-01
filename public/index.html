@@ -101,7 +101,7 @@
       const state = await res.json()
 
       // Numeric counters
-      document.getElementById('date').innerText = `(${state.date})`
+      document.getElementById('date').innerText = `(${state.date.slice(0, 10)})`
       const countersHtml = `
     <strong>Contadores:</strong><br>
     Pis: ${state.piss}<br>
