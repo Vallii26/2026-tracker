@@ -261,7 +261,7 @@ setInterval(async () => {
 
     // SNAPSHOTS
     const snapshotHours = [3, 6, 9, 12, 15, 18, 19, 21]
-    if (snapshotHours.includes(hh) && mm >= 45 && mm <= 46) {
+    if (snapshotHours.includes(hh) && mm >= 0 && mm <= 1) {
       if (dailyState[user].lastSnapshotHour !== hh) {
         await saveDayToDB(user, "snapshot")
         dailyState[user].lastSnapshotHour = hh
