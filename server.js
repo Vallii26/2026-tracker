@@ -251,6 +251,21 @@ async function saveDayToDB(user, type = "midnight") {
   }
 }
 
+async function resetDailyState(user) {
+  dailyState[user] = {
+    date: today(),
+    poop: 0,
+    piss: 0,
+    coffee: 0,
+    sick: 0,
+    workout: 0,
+    nap: 0,
+    restaurants: [],
+    films: [],
+    shows: []
+  }
+}
+
 /* =====================
    ROLLOVER & SNAPSHOTS
 ===================== */
@@ -266,7 +281,7 @@ setInterval(async () => {
     if (midnightHours.includes(hh) && mm >= 0 && mm <= 1) {
       if (dailyState[user].lastSnapshotHour !== hh) {
         await saveDayToDB(user, "midnight")
-        resetDailyState(user)
+        await resetDailyState(user)
         continue
       }
     }
