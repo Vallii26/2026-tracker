@@ -250,10 +250,13 @@ setInterval(async () => {
 
   for (const user in dailyState) {
     // MIDNIGHT
-    if (dailyState[user].date !== todayStr) {
-      await saveDayToDB(user, "midnight")
-      resetDailyState(user)
-      continue
+    const midnightHours = [0]
+    if (midnightHours.includes(hh) && mm >= 0 && mm <= 1) {
+      if (dailyState[user].lastSnapshotHour !== hh) {
+        await saveDayToDB(user, "midnight")
+        resetDailyState(user)
+        continue
+      }
     }
 
     // SNAPSHOTS
