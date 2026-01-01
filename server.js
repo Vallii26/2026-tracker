@@ -148,18 +148,19 @@ app.post("/add/:user/:type", (req, res) => {
 })
 
 /* =====================
-   MIDNIGHT ROLLOVER
+   MIDNIGHT & SNAPSHOT ROLLOVER
 ===================== */
-function saveDayToCSV(user) {
+
+function saveDayToCSV(user, type = "midnight") {
   const d = dailyState[user]
   const file = USERS[user].csv
 
   // append CSV row
-  const row = `${d.date},${d.poop},${d.piss},${d.shower},${d.sick},${d.workout},${d.nap},${d.party}${d.coffee},${d.restaurants.length},${d.films.length},${d.shows.length},${d.books.length}\n`
+  const row = `${d.date},${d.poop},${d.piss},${d.shower},${d.sick},${d.workout},${d.nap},${d.party},${d.coffee},${d.restaurants.length},${d.films.length},${d.shows.length},${d.books.length},${type}\n`
   fs.appendFileSync(file, row)
 
   // save full JSON log
-  const logFile = path.join("logs", `${user}-${d.date}.json`)
+  const logFile = path.join("logs", `${user}-${d.date}-${type}.json`)
   fs.writeFileSync(logFile, JSON.stringify(d, null, 2))
 }
 
@@ -177,31 +178,39 @@ function resetDailyState(user) {
     restaurants: [],
     films: [],
     shows: [],
-    books: []
+    books: [],
+    lastSnapshotHour: null // track last snapshot to avoid duplicates
   }
 }
 
 // check every minute
 setInterval(() => {
-  const now = today()
+  const now = new Date()
+  const hh = now.getHours()
+  const mm = now.getMinutes()
+  const todayStr = today()
+
   for (const user in dailyState) {
-    if (dailyState[user].date !== now) {
-      saveDayToCSV(user)
+    // MIDNIGHT ROLLOVER
+    if (dailyState[user].date !== todayStr) {
+      saveDayToCSV(user, "midnight")
       resetDailyState(user)
-      console.log(`Saved and reset ${user} for new day ${now}`)
+      console.log(`Saved and reset ${user} for new day ${todayStr}`)
+      continue
+    }
+
+    // SNAPSHOT saves at 6AM, 12PM, 6PM
+    const snapshotHours = [3, 6, 9, 12, 15, 18, 21]
+    if (snapshotHours.includes(hh) && mm >= 0 && mm < 1) {
+      // prevent multiple saves in the same hour
+      if (dailyState[user].lastSnapshotHour !== hh) {
+        saveDayToCSV(user, "snapshot")
+        dailyState[user].lastSnapshotHour = hh
+        console.log(`Saved snapshot for ${user} at ${hh}:00`)
+      }
     }
   }
-}, 60 * 1000) // 1 minute
-
-// TEMP: force rollover for testing
-app.post("/test-rollover/:user", (req, res) => {
-  const user = req.params.user
-  if (!dailyState[user]) return res.status(404).json({ error: "User not found" })
-
-  // force yesterday
-  dailyState[user].date = '2000-01-01'
-  res.json({ ok: true, msg: `Forced date for ${user} to 2000-01-01` })
-})
+}, 60 * 1000) // every minute
 
 /* =====================
    START SERVER
