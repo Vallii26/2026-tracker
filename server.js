@@ -272,6 +272,67 @@ setInterval(async () => {
 ===================== */
 await initDB()
 
+async function loadLastSnapshot(user) {
+  const todayStr = today()
+
+  // get the latest snapshot for today
+  const { rows } = await pool.query(
+    `SELECT *
+     FROM daily_snapshots
+     WHERE username=$1 AND date=$2
+     ORDER BY created_at DESC
+     LIMIT 1`,
+    [user, todayStr]
+  )
+
+  if (rows.length === 0) {
+    // No snapshot today, start from 0
+    initUser(user)
+    return
+  }
+
+  const snapshot = rows[0]
+
+  dailyState[user] = {
+    date: snapshot.date,
+    poop: snapshot.poop,
+    piss: snapshot.piss,
+    coffee: snapshot.coffee,
+    shower: snapshot.shower,
+    sick: snapshot.sick,
+    workout: snapshot.workout,
+    nap: snapshot.nap,
+    party: snapshot.party,
+    restaurants: [],
+    films: [],
+    shows: [],
+    books: [],
+    lastSnapshotHour: null
+  }
+
+  // load named events for today
+  const { rows: events } = await pool.query(
+    `SELECT * FROM named_events
+     WHERE username=$1 AND date=$2`,
+    [user, todayStr]
+  )
+
+  for (const ev of events) {
+    // pluralize type to match dailyState keys
+    const key = ev.type + "s"
+    if (dailyState[user][key]) {
+      dailyState[user][key].push({
+        name: ev.name,
+        time: ev.time
+      })
+    }
+  }
+}
+
+for (const user of Object.keys(USERS)) {
+  await loadLastSnapshot(user)
+}
+
 app.listen(3000, () => {
   console.log("Server running on http://localhost:3000")
 })
