@@ -144,6 +144,8 @@ app.get("/state/:user/:date", async (req, res) => {
 /* =====================
    MUTATIONS
 ===================== */
+
+// INCREMENT numeric field
 app.post("/increment/:user/:field", (req, res) => {
   const { user, field } = req.params
   if (!dailyState[user]) return res.status(404).end()
@@ -154,6 +156,29 @@ app.post("/increment/:user/:field", (req, res) => {
   res.json(dailyState[user])
 })
 
+// DECREMENT numeric field (never below 0)
+app.post("/decrement/:user/:field", (req, res) => {
+  const { user, field } = req.params
+  if (!dailyState[user]) return res.status(404).json({ error: "User not found" })
+  if (typeof dailyState[user][field] !== "number")
+    return res.status(400).json({ error: "Not numeric" })
+
+  dailyState[user][field] = Math.max(0, dailyState[user][field] - 1)
+  res.json(dailyState[user])
+})
+
+// TOGGLE numeric field (0 ↔ 1)
+app.post("/toggle/:user/:field", (req, res) => {
+  const { user, field } = req.params
+  if (!dailyState[user]) return res.status(404).end()
+  if (typeof dailyState[user][field] !== "number")
+    return res.status(400).json({ error: "Not numeric" })
+
+  dailyState[user][field] = dailyState[user][field] ? 0 : 1
+  res.json(dailyState[user])
+})
+
+// ADD named item to array field
 app.post("/add/:user/:type", (req, res) => {
   const { user, type } = req.params
   const { name } = req.body
