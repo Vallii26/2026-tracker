@@ -273,7 +273,7 @@ setInterval(async () => {
 
     // SNAPSHOTS
     const snapshotHours = [2, 5, 8, 11, 14, 17, 20]
-    if (snapshotHours.includes(hh) && mm >= 10 && mm <= 11) {
+    if (snapshotHours.includes(hh) && mm >= 18 && mm <= 19) {
       if (dailyState[user].lastSnapshotHour !== hh) {
         await saveDayToDB(user, "snapshot")
         dailyState[user].lastSnapshotHour = hh
@@ -294,9 +294,7 @@ async function loadLastSnapshot(user) {
   const { rows } = await pool.query(
     `SELECT *
      FROM daily_snapshots
-     WHERE username=$1 AND date=$2
-     ORDER BY created_at DESC
-     LIMIT 1`,
+     WHERE username=$1 AND date=$2`,
     [user, todayStr]
   )
 
