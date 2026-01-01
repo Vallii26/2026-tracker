@@ -38,6 +38,12 @@ h1 {
     -webkit-text-fill-color: transparent;
 }
 
+h3 span {
+    cursor: pointer;
+    text-decoration: underline;
+    text-decoration-style: dotted;
+}
+
 h2 {
     font-size: 1.8rem;
     margin-bottom: 20px;

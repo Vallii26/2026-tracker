@@ -77,6 +77,30 @@ app.get("/state/:user", (req, res) => {
   res.json(dailyState[user])
 })
 
+app.get("/state/:user/:date", (req, res) => {
+  const { user, date } = req.params
+
+  // if today, return live state
+  if (date === today() && dailyState[user]) {
+    return res.json(dailyState[user])
+  }
+
+  // check logs
+  const logFile = path.join("logs", `${user}-${date}.json`)
+  if (fs.existsSync(logFile)) {
+    const data = JSON.parse(fs.readFileSync(logFile))
+    return res.json(data)
+  }
+
+  // if no log, return empty structure (read-only)
+  res.json({
+    date,
+    poop: 0, piss: 0, coffee: 0, sick: 0, workout: 0, nap: 0, party: 0,
+    restaurants: [], films: [], shows: [], books: [],
+    readOnly: true // flag to disable editing
+  })
+})
+
 app.post("/increment/:user/:field", (req, res) => {
   const { user, field } = req.params
   if (!dailyState[user]) return res.status(404).end()

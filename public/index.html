@@ -28,32 +28,32 @@
       <!-- LEFT SIDE: ADD STATS -->
       <div class="left">
         <div class="section">
-          <h3>Add Counters</h3>
-          <button onclick="increment('piss')">+ Piss</button>
-          <button onclick="increment('poop')">+ Poop</button>
-          <button onclick="increment('coffee')">+ Coffee</button>
-          <button onclick="toggle('sick')">Toggle Sick</button>
-          <button onclick="toggle('workout')">Toggle Workout</button>
-          <button onclick="toggle('nap')">Toggle Nap</button>
-          <button onclick="toggle('party')">Toggle Party</button>
+          <h3>Añadir Estadisticas</h3>
+          <button onclick="increment('piss')">+ Pis</button>
+          <button onclick="increment('poop')">+ Caca</button>
+          <button onclick="increment('coffee')">+ Cafe</button>
+          <button onclick="toggle('sick')">Activar Enfermo</button>
+          <button onclick="toggle('workout')">Activar Entrenamiento</button>
+          <button onclick="toggle('nap')">Activar Siesta</button>
+          <button onclick="toggle('party')">Activar Fiesta</button>
         </div>
 
         <div class="section">
-          <h3>Add Named Events</h3>
-          <input id="restaurantName" placeholder="Restaurant">
-          <button onclick="addNamed('restaurants','restaurantName')">Add Restaurant</button>
-          <input id="filmName" placeholder="Film">
-          <button onclick="addNamed('films','filmName')">Add Film</button>
-          <input id="showName" placeholder="TV Show">
-          <button onclick="addNamed('shows','showName')">Add Show</button>
-          <input id="bookName" placeholder="Book">
-          <button onclick="addNamed('books','bookName')">Add Book</button>
+          <h3>Añadir Eventos</h3>
+          <input id="restaurantName" placeholder="Restaurante">
+          <button onclick="addNamed('restaurants','restaurantName')">Añadir Restaurante</button>
+          <input id="filmName" placeholder="Pelicula">
+          <button onclick="addNamed('films','filmName')">Añadir Pelicula</button>
+          <input id="showName" placeholder="Serie">
+          <button onclick="addNamed('shows','showName')">Añadir Serie</button>
+          <input id="bookName" placeholder="Libro">
+          <button onclick="addNamed('books','bookName')">Añadir Libro</button>
         </div>
       </div>
 
       <!-- RIGHT SIDE: DAILY STATS -->
       <div class="right">
-        <h3>Daily Stats</h3>
+        <h3> Estadisticas Diarias <span id="date">today</span></h3>
         <div id="statsCounters"></div>
         <div id="statsNamed"></div>
       </div>
@@ -78,7 +78,7 @@
       currentUser = user
       document.getElementById('loginDiv').style.display = 'none'
       document.getElementById('trackerDiv').style.display = 'block'
-      document.getElementById('welcome').innerText = `Logged in as ${user.charAt(0).toUpperCase() + user.slice(1)}`
+      document.getElementById('welcome').innerText = `Sesion iniciada como ${user.charAt(0).toUpperCase() + user.slice(1)}`
       updateState()
     }
 
@@ -88,25 +88,26 @@
       const state = await res.json()
 
       // Numeric counters
+      document.getElementById('date').innerText = `(${state.date})`
       const countersHtml = `
-    <strong>Counters:</strong><br>
-    Piss: ${state.piss}<br>
-    Poop: ${state.poop}<br>
-    Coffee: ${state.coffee}<br>
-    Sick: ${state.sick}<br>
-    Workout: ${state.workout}<br>
-    Nap: ${state.nap}<br>
-    Party: ${state.party}<br>
+    <strong>Contadores:</strong><br>
+    Pis: ${state.piss}<br>
+    Cacas: ${state.poop}<br>
+    Cafe: ${state.coffee}<br>
+    Enfermo: ${state.sick}<br>
+    Entrenamiento: ${state.workout}<br>
+    Siesta: ${state.nap}<br>
+    Fiesta: ${state.party}<br>
   `
       document.getElementById('statsCounters').innerHTML = countersHtml
 
       // Named events
       const namedHtml = `
-    <strong>Named Events:</strong><br>
-    Restaurants: ${state.restaurants.map(r => r.name).join(', ') || 'None'}<br>
-    Films: ${state.films.map(f => f.name).join(', ') || 'None'}<br>
-    TV Shows: ${state.shows.map(s => s.name).join(', ') || 'None'}<br>
-    Books: ${state.books.map(r => r.name).join(', ') || 'None'}<br>
+    <strong>Eventos:</strong><br>
+    Restaurantes: ${state.restaurants.map(r => r.name).join(', ') || 'None'}<br>
+    Peliculas: ${state.films.map(f => f.name).join(', ') || 'None'}<br>
+    Series: ${state.shows.map(s => s.name).join(', ') || 'None'}<br>
+    Libros: ${state.books.map(r => r.name).join(', ') || 'None'}<br>
   `
       document.getElementById('statsNamed').innerHTML = namedHtml
     }
