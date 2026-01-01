@@ -33,6 +33,7 @@ function initUser(user) {
     poop: 0,
     piss: 0,
     coffee: 0,
+    shower: 0,
     sick: 0,
     workout: 0,
     nap: 0,
@@ -47,7 +48,7 @@ function initUser(user) {
   if (!fs.existsSync(file)) {
     fs.writeFileSync(
       file,
-      "Date,Poop,Piss,Sick,Workout,Nap,Party,Coffee,RestaurantCount,FilmCount,TVCount,BookCount\n"
+      "Date,Poop,Piss,Shower,Sick,Workout,Nap,Party,Coffee,RestaurantCount,FilmCount,TVCount,BookCount\n"
     )
   }
 
@@ -95,7 +96,7 @@ app.get("/state/:user/:date", (req, res) => {
   // if no log, return empty structure (read-only)
   res.json({
     date,
-    poop: 0, piss: 0, coffee: 0, sick: 0, workout: 0, nap: 0, party: 0,
+    poop: 0, piss: 0, coffee: 0, shower: 0, sick: 0, workout: 0, nap: 0, party: 0,
     restaurants: [], films: [], shows: [], books: [],
     readOnly: true // flag to disable editing
   })
@@ -109,6 +110,20 @@ app.post("/increment/:user/:field", (req, res) => {
 
   dailyState[user][field] += 1
   res.json(dailyState[user])
+})
+
+// Decrement numeric counter
+app.post("/decrement/:user/:field", (req, res) => {
+  const { user, field } = req.params
+  if (!dailyState[user]) return res.status(404).json({ error: "User not found" })
+  if (!(field in dailyState[user])) return res.status(400).json({ error: "Invalid field" })
+
+  // Make sure it’s a number field
+  if (typeof dailyState[user][field] === "number") {
+    dailyState[user][field] = Math.max(0, dailyState[user][field] - 1) // no negative counts
+  }
+
+  res.json({ ok: true, value: dailyState[user][field] })
 })
 
 app.post("/toggle/:user/:field", (req, res) => {
@@ -140,7 +155,7 @@ function saveDayToCSV(user) {
   const file = USERS[user].csv
 
   // append CSV row
-  const row = `${d.date},${d.poop},${d.piss},${d.sick},${d.workout},${d.nap},${d.party}${d.coffee},${d.restaurants.length},${d.films.length},${d.shows.length},${d.books.length}\n`
+  const row = `${d.date},${d.poop},${d.piss},${d.shower},${d.sick},${d.workout},${d.nap},${d.party}${d.coffee},${d.restaurants.length},${d.films.length},${d.shows.length},${d.books.length}\n`
   fs.appendFileSync(file, row)
 
   // save full JSON log
@@ -154,6 +169,7 @@ function resetDailyState(user) {
     poop: 0,
     piss: 0,
     coffee: 0,
+    shower: 0,
     sick: 0,
     workout: 0,
     nap: 0,

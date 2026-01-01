@@ -197,3 +197,27 @@ button[onclick*="addNamed"]:hover {
     margin-top: 10px;
     font-size: 0.9rem;
 }
+
+.counter-row {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 12px;
+}
+
+.counter-row button {
+    margin-bottom: 0;
+}
+
+.decrement-btn {
+    width: 50px;
+    flex-shrink: 0;
+    background-color: transparent;
+    border-color: var(--text-secondary);
+    color: var(--text-secondary);
+}
+
+.decrement-btn:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+    border-color: var(--text-primary);
+    color: var(--text-primary);
+}

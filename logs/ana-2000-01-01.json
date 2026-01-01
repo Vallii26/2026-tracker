@@ -1,0 +1,19 @@
+{
+  "date": "2000-01-01",
+  "poop": 1,
+  "piss": 1,
+  "coffee": 0,
+  "sick": 1,
+  "workout": 1,
+  "nap": 1,
+  "party": 1,
+  "restaurants": [
+    {
+      "name": "Cca",
+      "time": "2026-01-01T15:21:40.870Z"
+    }
+  ],
+  "films": [],
+  "shows": [],
+  "books": []
+}
