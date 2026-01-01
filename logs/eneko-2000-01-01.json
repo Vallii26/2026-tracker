@@ -1,0 +1,38 @@
+{
+  "date": "2000-01-01",
+  "poop": 1,
+  "piss": 13,
+  "coffee": 3,
+  "sick": 1,
+  "workout": 0,
+  "nap": 0,
+  "party": 1,
+  "restaurants": [
+    {
+      "name": "Old Shangai",
+      "time": "2026-01-01T13:51:36.822Z"
+    }
+  ],
+  "films": [
+    {
+      "name": "Mikelin calvin",
+      "time": "2026-01-01T13:51:37.471Z"
+    }
+  ],
+  "shows": [
+    {
+      "name": "Better Fuel Huell",
+      "time": "2026-01-01T13:51:46.074Z"
+    }
+  ],
+  "books": [
+    {
+      "name": "no",
+      "time": "2026-01-01T13:51:51.604Z"
+    },
+    {
+      "name": "si",
+      "time": "2026-01-01T13:51:56.315Z"
+    }
+  ]
+}
