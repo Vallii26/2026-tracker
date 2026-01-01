@@ -201,6 +201,21 @@ app.post("/add/:user/:type", (req, res) => {
 async function saveDayToDB(user, type = "midnight") {
   const d = dailyState[user]
 
+  // 1️⃣ Delete previous snapshots for the same user and date
+  await pool.query(
+    `DELETE FROM daily_snapshots
+     WHERE username = $1 AND date = $2 AND snapshot_type != 'midnight'`,
+    [user, d.date]
+  )
+
+  // Also delete previous named events for this date
+  await pool.query(
+    `DELETE FROM named_events
+     WHERE username = $1 AND date = $2`,
+    [user, d.date]
+  )
+
+  // 2️⃣ Insert the new snapshot
   await pool.query(
     `INSERT INTO daily_snapshots (
       username, date, snapshot_type,
@@ -224,6 +239,7 @@ async function saveDayToDB(user, type = "midnight") {
     ]
   )
 
+  // 3️⃣ Insert named events
   for (const typeName of ["restaurants", "films", "shows", "books"]) {
     for (const item of d[typeName]) {
       await pool.query(
@@ -233,10 +249,6 @@ async function saveDayToDB(user, type = "midnight") {
       )
     }
   }
-}
-
-function resetDailyState(user) {
-  initUser(user)
 }
 
 /* =====================
@@ -261,7 +273,7 @@ setInterval(async () => {
 
     // SNAPSHOTS
     const snapshotHours = [2, 5, 8, 11, 14, 17, 20]
-    if (snapshotHours.includes(hh) && mm >= 0 && mm <= 1) {
+    if (snapshotHours.includes(hh) && mm >= 10 && mm <= 11) {
       if (dailyState[user].lastSnapshotHour !== hh) {
         await saveDayToDB(user, "snapshot")
         dailyState[user].lastSnapshotHour = hh
